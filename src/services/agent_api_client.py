@@ -119,56 +119,87 @@ class AgentApiClient:
         Returns:
             The agent's response as a dictionary
         """
-        endpoint = f"{self.api_url}/api/v1/agent/{agent_name}/run"
+        # Use the new agent API endpoint
+        endpoint = f"{self.api_url}/api/agent/chat"
 
         # Prepare headers
         headers = self._make_headers()
 
-        # Prepare payload
-        payload = {"message_content": message_content, "message_limit": message_limit}
+        # Generate or use provided session_id - required for the new API
+        import uuid as uuid_module
+        if session_id:
+            actual_session_id = session_id
+        elif session_name:
+            # Generate a deterministic session ID from session name
+            actual_session_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, session_name))
+        else:
+            # Generate a random session ID
+            actual_session_id = str(uuid_module.uuid4())
+            logger.info(f"Generated new session_id: {actual_session_id}")
 
-        # Handle user identification - prefer user dict over user_id
+        # Prepare payload for the new API
+        payload = {
+            "message": message_content,
+            "session_id": actual_session_id,
+            "session_name": session_name or f"session_{actual_session_id[:8]}",
+        }
+
+        # First, determine the user_id - this is REQUIRED by the agent API
+        effective_user_id = user_id  # Default to passed user_id
+        
+        if user and isinstance(user, dict) and "phone_number" in user:
+            # If user dict has phone_number, try to use it as deterministic user_id
+            if not effective_user_id:
+                phone_num = user.get("phone_number", "").replace("+", "").replace(" ", "")
+                if phone_num:
+                    effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, phone_num))
+                    logger.info(f"Generated UUID from phone_number: {effective_user_id}")
+        
+        # Handle user_id validation and generation
+        if effective_user_id is not None:
+            if isinstance(effective_user_id, str):
+                # First, check if it's a valid UUID string
+                try:
+                    uuid_module.UUID(effective_user_id)
+                    # If it's a valid UUID string, keep it as is
+                    logger.debug(f"Using UUID string for user_id: {effective_user_id}")
+                except ValueError:
+                    # If not a UUID, generate a deterministic UUID from the identifier
+                    if effective_user_id.isdigit():
+                        # Generate UUID from phone number for consistent user identification
+                        effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, effective_user_id))
+                        logger.info(f"Generated UUID from phone number: {effective_user_id}")
+                    elif effective_user_id.lower() == "anonymous":
+                        # Generate UUID for anonymous user
+                        effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, "anonymous"))
+                        logger.info(f"Generated UUID for anonymous user: {effective_user_id}")
+                    else:
+                        # Generate UUID from any string identifier
+                        effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, effective_user_id))
+                        logger.info(f"Generated UUID from identifier: {effective_user_id}")
+            elif isinstance(effective_user_id, int):
+                # Convert integer user_id to UUID for compatibility with agent API
+                effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, str(effective_user_id)))
+                logger.info(f"Generated UUID from integer user_id: {effective_user_id}")
+            else:
+                # If it's not a string or int, generate UUID from string representation
+                effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, str(effective_user_id)))
+                logger.warning(f"Unexpected user_id type: {type(effective_user_id)}, generated UUID: {effective_user_id}")
+        else:
+            # Handle case where user_id is None - generate a default UUID
+            default_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, "default"))
+            logger.warning(f"No user_id provided, using default UUID: {default_user_id}")
+            effective_user_id = default_user_id
+
+        # Always include user_id at top level - it's REQUIRED by the agent API
+        payload["user_id"] = effective_user_id
+        logger.debug(f"Payload user_id set to: {effective_user_id}")
+        
+        # Also include user dict if provided for automatic user creation
         if user:
             # Use the user dict for automatic user creation
             payload["user"] = user
             logger.info(f"Using user dict for automatic user creation: {user.get('phone_number', 'N/A')}")
-        elif user_id is not None:
-            # Fallback to existing user_id logic
-            if isinstance(user_id, str):
-                # First, check if it's a valid UUID string
-                try:
-                    uuid.UUID(user_id)
-                    # If it's a valid UUID string, keep it as is
-                    logger.debug(f"Using UUID string for user_id: {user_id}")
-                except ValueError:
-                    # If not a UUID, generate a deterministic UUID from the identifier
-                    if user_id.isdigit():
-                        # Generate UUID from phone number for consistent user identification
-                        user_id = str(uuid.uuid5(uuid.NAMESPACE_OID, user_id))
-                        logger.info(f"Generated UUID from phone number: {user_id}")
-                    elif user_id.lower() == "anonymous":
-                        # Generate UUID for anonymous user
-                        user_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "anonymous"))
-                        logger.info(f"Generated UUID for anonymous user: {user_id}")
-                    else:
-                        # Generate UUID from any string identifier
-                        user_id = str(uuid.uuid5(uuid.NAMESPACE_OID, user_id))
-                        logger.info(f"Generated UUID from identifier '{user_id}': {user_id}")
-            elif isinstance(user_id, int):
-                # Convert integer user_id to UUID for compatibility with agent API
-                user_id = str(uuid.uuid5(uuid.NAMESPACE_OID, str(user_id)))
-                logger.info(f"Generated UUID from integer user_id: {user_id}")
-            else:
-                # If it's not a string or int, generate UUID from string representation
-                user_id = str(uuid.uuid5(uuid.NAMESPACE_OID, str(user_id)))
-                logger.warning(f"Unexpected user_id type: {type(user_id)}, generated UUID: {user_id}")
-
-            payload["user_id"] = user_id
-        else:
-            # Handle case where both user and user_id are None
-            default_user_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "default"))
-            logger.warning(f"Neither user dict nor user_id provided, using default UUID: {default_user_id}")
-            payload["user_id"] = default_user_id  # Assign a default UUID if None is not allowed by API
 
         # Add optional parameters if provided
         if message_type:
@@ -186,12 +217,6 @@ class AgentApiClient:
         if channel_payload:
             payload["channel_payload"] = channel_payload
 
-        # Prefer session_name over session_id if both are provided
-        if session_name:
-            payload["session_name"] = session_name
-        elif session_id:
-            payload["session_id"] = session_id
-
         if context:
             payload["context"] = context
 
@@ -205,9 +230,9 @@ class AgentApiClient:
         logger.info(f"Making API request to {endpoint}")
         # Log payload summary without full content to avoid log clutter
         payload_summary = {
-            "message_length": len(payload.get("message_content", "")),
+            "message_length": len(payload.get("message", "")),
             "user_id": payload.get("user_id"),
-            "session_name": payload.get("session_name"),
+            "session_id": payload.get("session_id"),
             "message_type": payload.get("message_type"),
             "media_contents_count": len(payload.get("media_contents", [])),
             "has_context": bool(payload.get("context")),
@@ -229,8 +254,8 @@ class AgentApiClient:
 
                     # Return the full response structure to preserve all fields
                     if isinstance(response_data, dict):
-                        # Log success with message info if available
-                        message_text = response_data.get("message", "")
+                        # Normalize response: support both "text" and "message" fields
+                        message_text = response_data.get("message") or response_data.get("text") or ""
                         session_id = response_data.get("session_id", "unknown")
                         success = response_data.get("success", True)
 
@@ -239,8 +264,23 @@ class AgentApiClient:
                             f"Received response from agent ({message_length} chars), session: {session_id}, success: {success}"
                         )
 
+                        # Normalize the response to our expected format
+                        normalized_response = {
+                            "message": message_text,  # Ensure "message" field exists
+                            "success": success,
+                            "session_id": session_id,
+                            "tool_calls": response_data.get("tool_calls", []),
+                            "tool_outputs": response_data.get("tool_outputs", []),
+                            "usage": response_data.get("usage", {}),
+                        }
+                        
+                        # Preserve any additional fields from the agent response
+                        for key, value in response_data.items():
+                            if key not in normalized_response:
+                                normalized_response[key] = value
+
                         # Return the complete response structure
-                        return response_data
+                        return normalized_response
                     else:
                         # If response is not a dict, wrap it in the expected format
                         logger.warning(f"Agent response is not a dict, wrapping: {type(response_data)}")
@@ -266,7 +306,13 @@ class AgentApiClient:
                     }
             else:
                 # Log error
-                logger.error(f"Error from agent API: {response.status_code} (response: {len(response.text)} chars)")
+                logger.error(f"Error from agent API: {response.status_code}")
+                logger.error(f"Response text: {response.text[:500]}")
+                try:
+                    error_data = response.json()
+                    logger.error(f"Error response JSON: {error_data}")
+                except:
+                    pass
                 return {
                     "error": f"Desculpe, encontrei um erro (status {response.status_code}).",
                     "details": f"Response length: {len(response.text)} chars",

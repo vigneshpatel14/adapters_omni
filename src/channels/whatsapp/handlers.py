@@ -195,23 +195,30 @@ class WhatsAppMessageHandler:
             trace_context: TraceContext for message lifecycle tracking
         """
         try:
-            # The message from Evolution API has a different structure from our previous code
-            # Message data is usually in the 'data' field
-            data = message.get("data", {})
+            # The message from Evolution API 2.3.7 has the structure:
+            # {
+            #   "key": {"remoteJid": "...", "id": "...", "fromMe": false},
+            #   "message": {"conversation": "text"},
+            #   "messageTimestamp": ...,
+            #   "pushName": "Name",
+            #   "status": "PENDING"
+            # }
+            # The message IS the data (not wrapped in a "data" field)
+            data = message  # The individual message is the data itself
 
             # Extract sender information from the proper location
+            # The message object has "key" at the top level
             if "key" in data and "remoteJid" in data["key"]:
                 sender_id = data["key"]["remoteJid"]
             else:
-                logger.warning("Message does not contain remoteJid in the expected location")
-                # Try to get it from the sender field directly
-                sender_id = message.get("sender")
+                logger.warning(f"Message does not contain key.remoteJid in expected location. Message keys: {list(data.keys())}")
+                sender_id = None
 
             if not sender_id:
                 logger.error("No sender ID found in message, unable to process")
                 return
 
-            # Extract user name from pushName field if available
+            # Extract user name from pushName field
             user_name = data.get("pushName", "")
             if user_name:
                 logger.info(f"User name extracted: {user_name}")
@@ -220,10 +227,10 @@ class WhatsAppMessageHandler:
 
             # Save webhook debug data if enabled
             message_id = data.get("key", {}).get("id", f"msg_{int(time.time())}")
-            self._save_webhook_debug(message, message_id)
+            self._save_webhook_debug(data, message_id)
 
             # Extract message type
-            message_type = self._extract_message_type(message)
+            message_type = self._extract_message_type(data)
             if not message_type:
                 logger.warning("Unable to determine message type")
                 return
@@ -614,7 +621,7 @@ class WhatsAppMessageHandler:
                 # Extract message text and log additional information from agent response
                 if isinstance(agent_response, dict):
                     # Full agent response structure
-                    message_text = agent_response.get("message", "")
+                    message_text = agent_response.get("message", "") or agent_response.get("text", "")
                     session_id = agent_response.get("session_id", "unknown")
                     success = agent_response.get("success", True)
                     tool_calls = agent_response.get("tool_calls", [])
@@ -628,6 +635,7 @@ class WhatsAppMessageHandler:
                     logger.info(
                         f"Agent response - Session: {session_id}, Success: {success}, Tools used: {len(tool_calls)}"
                     )
+                    logger.info(f"DEBUG: Agent response fields: message={bool(agent_response.get('message'))}, text={bool(agent_response.get('text'))}, full_response={agent_response}")
                     if current_user_id:
                         logger.info(f"Session {session_name} is now linked to user_id: {current_user_id}")
                     if usage:
@@ -958,17 +966,18 @@ class WhatsAppMessageHandler:
         Extract the text content from a WhatsApp message.
 
         Args:
-            message: The WhatsApp message payload
+            message: The WhatsApp message payload (this IS the data)
 
         Returns:
             Extracted text content or empty string if not found
         """
         try:
-            data = message.get("data", {})
+            # The message IS the data (Evolution API 2.3.7 structure)
+            data = message
 
             # Transcription disabled - process audio messages as raw audio
 
-            # Check if we have a conversation message
+            # Get the message object which contains the actual message data
             message_obj = data.get("message", {})
 
             # Try to find the message content in common places
@@ -1000,12 +1009,12 @@ class WhatsAppMessageHandler:
                     return message_obj["documentMessage"].get("caption", "")
 
             # If we have raw text content directly in the data
-            if "body" in data:
-                return data["body"]
+            if "body" in data or "body" in message:
+                return data.get("body") or message.get("body", "")
 
             # For audio messages, return meaningful content to ensure proper session creation
             # Empty content can cause session management issues
-            message_type = data.get("messageType", "")
+            message_type = data.get("messageType", "") or message.get("messageType", "")
             if message_type in ["audioMessage", "audio", "voice", "ptt"]:
                 return "[Audio message - transcription will be handled by agent]"
 
@@ -1077,13 +1086,14 @@ class WhatsAppMessageHandler:
         Determine the message type from a WhatsApp message.
 
         Args:
-            message: The WhatsApp message payload
+            message: The WhatsApp message payload (this IS the data, no nested "data" field)
 
         Returns:
             Message type (text, audio, image, etc.) or empty string if not determined
         """
         try:
-            data = message.get("data", {})
+            # The message IS the data (Evolution API 2.3.7 structure)
+            data = message
 
             # First check if the messageType is already provided by Evolution API
             if "messageType" in data:
@@ -1097,7 +1107,7 @@ class WhatsAppMessageHandler:
                     return "audio"
                 return msg_type
 
-            # Otherwise try to determine from the message object
+            # Get the message object which contains the actual message data
             message_obj = data.get("message", {})
 
             if not message_obj or not isinstance(message_obj, dict):

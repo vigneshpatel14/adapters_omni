@@ -494,59 +494,110 @@ async def _handle_evolution_webhook(instance_config, request: Request, db: Sessi
         logger.info(f"🔄 WEBHOOK ENTRY: Starting webhook processing for instance '{instance_config.name}'")
 
         # Get the JSON data from the request
-        data = await request.json()
-        payload_size = len(json.dumps(data).encode("utf-8"))
+        raw_data = await request.json()
         logger.info(f"✅ WEBHOOK JSON PARSED: Received webhook for instance '{instance_config.name}'")
-
-        # Enhanced logging for audio message debugging
-        message_obj = data.get("data", {}).get("message", {})
-        if "audioMessage" in message_obj:
-            logger.info(f"🎵 AUDIO MESSAGE DETECTED: {json.dumps(message_obj, indent=2)[:1000]}")
+        logger.debug(f"Raw webhook data: {raw_data}")
+        
+        # Check if the payload is Base64-encoded (Evolution API with "Webhook Base64: Enabled")
+        # If the payload has a "data" field that's a string, it might be Base64-encoded
+        data = raw_data
+        if isinstance(raw_data.get("data"), str):
+            try:
+                import base64
+                # Try to decode the Base64 data
+                decoded_bytes = base64.b64decode(raw_data["data"])
+                decoded_str = decoded_bytes.decode('utf-8')
+                data = json.loads(decoded_str)
+                logger.info(f"✅ WEBHOOK BASE64 DECODED: Successfully decoded Base64 payload")
+                logger.debug(f"Decoded webhook data: {data}")
+            except Exception as e:
+                logger.warning(f"Could not decode Base64 payload: {e}, using raw data instead")
+                # Fall back to treating raw_data as-is
+                data = raw_data
+        
+        payload_size = len(json.dumps(data).encode("utf-8"))
 
         logger.debug(f"Webhook data: {data}")
 
-        # Start message tracing
-        with get_trace_context(data, instance_config.name, db) as trace:
-            # Update the Evolution API sender with the webhook data
-            # This sets the runtime configuration from the webhook payload
-            evolution_api_sender.update_from_webhook(data)
+        # Extract individual messages from the messages array if present
+        # Evolution API sends webhooks as: {"event": "messages.upsert", "data": {"messages": [...]}}
+        messages_to_process = []
+        
+        if "data" in data and isinstance(data.get("data"), dict):
+            webhook_data = data["data"]
+            if "messages" in webhook_data and isinstance(webhook_data.get("messages"), list):
+                # Extract individual messages from array
+                messages_to_process = webhook_data["messages"]
+                logger.info(f"📨 Processing {len(messages_to_process)} messages from webhook")
+            elif "message" in webhook_data:
+                # Single message in data.message structure
+                messages_to_process = [webhook_data]
+            else:
+                # Fallback: treat entire webhook_data as a message
+                messages_to_process = [webhook_data]
+        else:
+            # Fallback: treat entire data as a message (backward compatibility)
+            messages_to_process = [data]
 
-            # Override instance name with the correct one from our database config
-            # to prevent URL conversion issues like "FlashinhoProTestonho" -> "flashinho-pro-testonho"
-            evolution_api_sender.instance_name = instance_config.whatsapp_instance
+        # Process each message
+        trace_id = None
+        for message_to_process in messages_to_process:
+            # Enhanced logging for audio message debugging
+            message_obj = message_to_process.get("message", {})
+            if "audioMessage" in message_obj:
+                logger.info(f"🎵 AUDIO MESSAGE DETECTED: {json.dumps(message_obj, indent=2)[:1000]}")
+            
+            # DEBUG: Log the message structure being processed
+            logger.debug(f"🔍 MESSAGE STRUCTURE DEBUG:")
+            logger.debug(f"   Message keys: {list(message_to_process.keys())}")
+            logger.debug(f"   Has 'key': {'key' in message_to_process}")
+            logger.debug(f"   Has 'message': {'message' in message_to_process}")
+            logger.debug(f"   Full message: {json.dumps(message_to_process, indent=2)[:500]}")
 
-            # Capture real media messages for testing purposes
-            try:
-                from src.utils.test_capture import test_capture
+            # Start message tracing
+            with get_trace_context(message_to_process, instance_config.name, db) as trace:
+                trace_id = trace.trace_id
+                # Update the Evolution API sender with the instance configuration
+                # Use the instance_config to set proper Evolution API credentials
+                evolution_api_sender.server_url = instance_config.evolution_url
+                evolution_api_sender.api_key = instance_config.evolution_key
+                # Use the Omni instance name (e.g., "whatsapp-test") as the Evolution API instance name
+                # This is more reliable than using the UUID, as Evolution API v2.3.7 accepts both but name is preferred
+                evolution_api_sender.instance_name = instance_config.name
+                evolution_api_sender.config = instance_config  # Store config for accessing enable_auto_split
 
-                test_capture.capture_media_message(data, instance_config)
-            except Exception as e:
-                logger.error(f"Test capture failed: {e}")
+                # Capture real media messages for testing purposes
+                try:
+                    from src.utils.test_capture import test_capture
 
-            # Process the message through the agent service
-            # The agent service will now delegate to the WhatsApp handler
-            # which will handle transcription and sending responses directly
-            # Pass instance_config and trace context to service for per-instance agent configuration
-            agent_service.process_whatsapp_message(data, instance_config, trace)
+                    test_capture.capture_media_message(message_to_process, instance_config)
+                except Exception as e:
+                    logger.error(f"Test capture failed: {e}")
 
-            # Track webhook processing telemetry
-            try:
-                track_webhook_processed(
-                    channel="whatsapp",
-                    success=True,
-                    duration_ms=(time.time() - start_time) * 1000,
-                    payload_size_kb=payload_size / 1024,
-                    instance_type="multi_tenant",
-                )
-            except Exception as e:
-                logger.debug(f"Webhook telemetry tracking failed: {e}")
+                # Process the message through the agent service
+                # The agent service will now delegate to the WhatsApp handler
+                # which will handle transcription and sending responses directly
+                # Pass instance_config and trace context to service for per-instance agent configuration
+                agent_service.process_whatsapp_message(message_to_process, instance_config, trace)
 
-            # Return success response
-            return {
-                "status": "success",
-                "instance": instance_config.name,
-                "trace_id": trace.trace_id if trace else None,
-            }
+        # Track webhook processing telemetry
+        try:
+            track_webhook_processed(
+                channel="whatsapp",
+                success=True,
+                duration_ms=(time.time() - start_time) * 1000,
+                payload_size_kb=payload_size / 1024,
+                instance_type="multi_tenant",
+            )
+        except Exception as e:
+            logger.debug(f"Webhook telemetry tracking failed: {e}")
+
+        # Return success response
+        return {
+            "status": "success",
+            "instance": instance_config.name,
+            "trace_id": trace_id,
+        }
 
     except Exception as e:
         # Track failed webhook processing

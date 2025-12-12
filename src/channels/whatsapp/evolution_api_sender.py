@@ -5,6 +5,7 @@ Handles sending messages back to Evolution API using webhook payload information
 
 import logging
 import requests
+import json
 from typing import Dict, Any, Optional, List
 from urllib.parse import quote
 import time
@@ -266,6 +267,9 @@ class EvolutionApiSender:
         Returns:
             bool: Success status
         """
+        # Build URL - Evolution API v2.3.7 uses instance name (not UUID) in the URL path
+        # instance_name could be either the Omni database instance name or Evolution instance UUID
+        # The API accepts both, but instance name is more reliable
         url = f"{self.server_url}/message/sendText/{quote(self.instance_name, safe='')}"
         formatted_recipient = self._prepare_recipient(recipient)
 
@@ -290,6 +294,9 @@ class EvolutionApiSender:
         try:
             # Log the request details (without sensitive data)
             logger.info(f"Sending message to {formatted_recipient} using URL: {url}")
+            logger.info(f"Payload: {json.dumps(payload)}")
+            logger.info(f"Instance name: {self.instance_name}")
+            logger.info(f"Server URL: {self.server_url}")
 
             # Make the API request
             response = requests.post(url, headers=headers, json=payload)

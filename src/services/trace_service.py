@@ -276,16 +276,17 @@ class TraceService:
         """Create a WhatsApp flavoured trace record (existing behaviour)."""
 
         try:
-            data = message_data.get("data", {})
-            key = data.get("key", {})
-            message_obj = data.get("message", {})
+            # Evolution API 2.3.7 sends messages at the top level (not nested in a "data" field)
+            # Structure: {"key": {...}, "message": {...}, "messageTimestamp": ..., "pushName": "...", ...}
+            key = message_data.get("key", {})
+            message_obj = message_data.get("message", {})
 
             trace_id = str(uuid.uuid4())
 
             message_type = TraceService._determine_message_type(message_obj)
             has_media = TraceService._has_media(message_obj)
-            context_info = data.get("contextInfo", {})
-            has_quoted = "contextInfo" in data and context_info is not None and "quotedMessage" in context_info
+            context_info = message_data.get("contextInfo", {})
+            has_quoted = ("contextInfo" in message_data and message_data.get("contextInfo") is not None and "quotedMessage" in message_data.get("contextInfo", {}))
 
             if message_type == "audio":
                 logger.info(f"🎵 TRACE: Creating trace for audio message, type={message_type}, has_media={has_media}")
@@ -302,7 +303,7 @@ class TraceService:
                 instance_name=instance_name,
                 whatsapp_message_id=key.get("id"),
                 sender_phone=TraceService._extract_phone(key.get("remoteJid", "")),
-                sender_name=data.get("pushName"),
+                sender_name=message_data.get("pushName"),
                 sender_jid=key.get("remoteJid"),
                 message_type=message_type,
                 has_media=has_media,
