@@ -59,8 +59,8 @@ class InstanceConfig(Base):
 
     # Unified Agent API configuration (supports Automagik and Hive via agent_* fields)
     agent_instance_type = Column(String, default="automagik", nullable=False)  # "automagik" or "hive"
-    agent_api_url = Column(String, nullable=False)
-    agent_api_key = Column(String, nullable=False)
+    agent_api_url = Column(String, nullable=True)  # Optional for built-in agents like Leo
+    agent_api_key = Column(String, nullable=True)  # Optional for built-in agents like Leo
     agent_id = Column(
         String, default="default", nullable=True
     )  # Agent name/ID - defaults to "default" for backward compatibility

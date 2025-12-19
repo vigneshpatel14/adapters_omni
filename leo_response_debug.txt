@@ -1,0 +1,156 @@
+event: RUN_STARTED
+id: 1
+data: {"type":"RUN_STARTED","threadId":"test-session","runId":"run_1765719686248_p2s9vckd7","timestamp":1765719686248,"isResume":false}
+event: STEP_STARTED
+id: 2
+data: {"type":"STEP_STARTED","stepName":"start","timestamp":1765719686252}
+event: STEP_FINISHED
+id: 3
+data: {"type":"STEP_FINISHED","stepName":"start","timestamp":1765719686256,"rawEvent":{"nodeType":"start"}}
+event: STATE_SNAPSHOT
+id: 4
+data: {"type":"STATE_SNAPSHOT","snapshot":[[],{"start":{"variables":{"flow":{},"system":{"userQuery":"{{nodeOutput.interface.inputs.userQuery}}"},"nodes":{"start":{"marker":"START","interface":{"inputs":{"message":"hello"}},"timestamp":"2025-12-14T13:41:26.253Z","nodeId":"start","nodeType":"start","name":"start","type":"start"},"agent_0":{"text":"Hello! ð How can I help you with Python today? If you have any questions or need help with code, just let me know!","toolCalls":[],"nodeType":"agent","nodeId":"agent_0","handoffActive":false,"name":"agent_0","type":"agent"},"final_response":{"name":"Final Response","type":"output"}}},"status":"running","messages":[{"lc":1,"type":"constructor","id":["langchain_core","messages","HumanMessage"],"kwargs":{"content":"hello","additional_kwargs":{"node_metadata":{"nodeName":"start","nodeType":"start","source":"variable_update"}},"response_metadata":{},"id":"6dd32a0d-dfb2-436d-8f87-a15d34702d6a"}}]}}],"timestamp":1765719686257,"rawEvent":{"nodeType":"start"}}
+event: STEP_STARTED
+id: 5
+data: {"type":"STEP_STARTED","stepName":"agent_0","timestamp":1765719686257}
+event: STEP_STARTED
+id: 6
+data: {"type":"STEP_STARTED","stepName":"AgentPrompt_agent_0.before_model","timestamp":1765719686263}
+event: STEP_FINISHED
+id: 7
+data: {"type":"STEP_FINISHED","stepName":"AgentPrompt_agent_0.before_model","timestamp":1765719686265,"rawEvent":{"nodeType":"agent"}}
+event: STATE_SNAPSHOT
+id: 8
+data: {"type":"STATE_SNAPSHOT","snapshot":[["agent_0:fd28eb25-5123-5322-8092-49092db2d46c"],{"AgentPrompt_agent_0.before_model":{"messages":[{"lc":1,"type":"constructor","id":["langchain_core","messages","SystemMessage"],"kwargs":{"content":"you are an helpful agent which solves all the user queries regarding python","additional_kwargs":{},"response_metadata":{},"id":"4c71a73e-045b-4e27-b04e-4dc2db8ef8ac"}},{"lc":1,"type":"constructor","id":["langchain_core","messages","HumanMessage"],"kwargs":{"content":"hello","additional_kwargs":{"node_metadata":{"nodeName":"start","nodeType":"start","source":"variable_update"}},"response_metadata":{},"id":"d0555350-8965-4cb0-8924-4edb00442270"}},{"lc":1,"type":"constructor","id":["langchain_core","messages","AIMessage"],"kwargs":{"content":"Hello! ð How can I help you with Python today? If you have any questions or need help with code, just let me know!","name":"agent_0","additional_kwargs":{"tool_calls_summary":[],"node_metadata":{"nodeName":"agent_0","nodeType":"agent"}},"tool_calls":[],"invalid_tool_calls":[],"response_metadata":{},"id":"06f73a6a-7516-4991-97c8-9333a0f79174"}},{"lc":1,"type":"constructor","id":["langchain_core","messages","HumanMessage"],"kwargs":{"content":"hello","additional_kwargs":{"node_metadata":{"nodeName":"start","nodeType":"start","source":"variable_update"}},"response_metadata":{},"id":"6dd32a0d-dfb2-436d-8f87-a15d34702d6a"}}]}}],"timestamp":1765719686266,"rawEvent":{"nodeType":"agent"}}
+event: STEP_STARTED
+id: 9
+data: {"type":"STEP_STARTED","stepName":"model_request","timestamp":1765719686266}
+event: TEXT_MESSAGE_START
+id: 10
+data: {"type":"TEXT_MESSAGE_START","messageId":"msg_1765719686267_z8curvcin","role":"assistant","timestamp":1765719686267,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 11
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":"Hello","timestamp":1765719687822,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 12
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" again","timestamp":1765719687823,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 13
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":"!","timestamp":1765719687823,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 14
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" ð","timestamp":1765719687823,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 15
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" How","timestamp":1765719687823,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 16
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" can","timestamp":1765719687824,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 17
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" I","timestamp":1765719687824,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 18
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" assist","timestamp":1765719687824,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 19
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" you","timestamp":1765719687824,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 20
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" with","timestamp":1765719687824,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 21
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" Python","timestamp":1765719687825,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 22
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" today","timestamp":1765719687825,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 23
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":"?","timestamp":1765719687825,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 24
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" If","timestamp":1765719687825,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 25
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" you","timestamp":1765719687825,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 26
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" have","timestamp":1765719687826,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 27
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" any","timestamp":1765719687826,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 28
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" questions","timestamp":1765719687827,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 29
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" or","timestamp":1765719687827,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 30
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" need","timestamp":1765719687828,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 31
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" help","timestamp":1765719687828,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 32
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" with","timestamp":1765719687828,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 33
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" anything","timestamp":1765719687829,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 34
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" related","timestamp":1765719687829,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 35
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" to","timestamp":1765719687829,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 36
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" Python","timestamp":1765719687830,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 37
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" programming","timestamp":1765719687830,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 38
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":",","timestamp":1765719687830,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 39
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" feel","timestamp":1765719687830,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 40
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" free","timestamp":1765719687830,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 41
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" to","timestamp":1765719687830,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 42
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":" ask","timestamp":1765719687831,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_CONTENT
+id: 43
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"msg_1765719686267_z8curvcin","delta":"!","timestamp":1765719687831,"rawEvent":{"nodeType":"agent"}}
+event: TEXT_MESSAGE_END
+id: 44
+data: {"type":"TEXT_MESSAGE_END","messageId":"msg_1765719686267_z8curvcin","timestamp":1765719687832,"rawEvent":{"nodeType":"agent"}}
+event: STEP_FINISHED
+id: 45
+data: {"type":"STEP_FINISHED","stepName":"model_request","timestamp":1765719687834,"rawEvent":{"nodeType":"agent"}}
+event: STATE_SNAPSHOT
+id: 46
+data: {"type":"STATE_SNAPSHOT","snapshot":[["agent_0:fd28eb25-5123-5322-8092-49092db2d46c"],{"model_request":{"messages":[{"lc":1,"type":"constructor","id":["langchain_core","messages","AIMessageChunk"],"kwargs":{"content":"Hello again! ð How can I assist you with Python today? If you have any questions or need help with anything related to Python programming, feel free to ask!","additional_kwargs":{},"response_metadata":{"model_provider":"openai","usage":{"completion_tokens":34,"completion_tokens_details":{"accepted_prediction_tokens":0,"audio_tokens":0,"reasoning_tokens":0,"rejected_prediction_tokens":0},"prompt_tokens":84,"prompt_tokens_details":{"audio_tokens":0,"cached_tokens":0},"total_tokens":118}},"tool_call_chunks":[],"id":"chatcmpl-CmgdiQSp3konbtilKZ63yeMFYfSW5","usage_metadata":{"input_tokens":84,"output_tokens":34,"total_tokens":118,"input_token_details":{"audio":0,"cache_read":0},"output_token_details":{"audio":0,"reasoning":0}},"tool_calls":[],"invalid_tool_calls":[],"name":"ReAct"}}]}}],"timestamp":1765719687835,"rawEvent":{"nodeType":"agent"}}
+event: STEP_FINISHED
+id: 47
+data: {"type":"STEP_FINISHED","stepName":"agent_0","timestamp":1765719687838,"rawEvent":{"nodeType":"agent"}}
+event: STATE_SNAPSHOT
+id: 48
+data: {"type":"STATE_SNAPSHOT","snapshot":[[],{"agent_0":{"variables":{"flow":{},"system":{"userQuery":"{{nodeOutput.interface.inputs.userQuery}}"},"nodes":{"start":{"marker":"START","interface":{"inputs":{"message":"hello"}},"timestamp":"2025-12-14T13:41:26.253Z","nodeId":"start","nodeType":"start","name":"start","type":"start"},"agent_0":{"text":"Hello again! ð How can I assist you with Python today? If you have any questions or need help with anything related to Python programming, feel free to ask!","toolCalls":[],"nodeType":"agent","nodeId":"agent_0","handoffActive":false,"name":"agent_0","type":"agent"},"final_response":{"name":"Final Response","type":"output"}}},"status":"running","messages":[{"lc":1,"type":"constructor","id":["langchain_core","messages","AIMessage"],"kwargs":{"content":"Hello again! ð How can I assist you with Python today? If you have any questions or need help with anything related to Python programming, feel free to ask!","name":"agent_0","additional_kwargs":{"tool_calls_summary":[],"node_metadata":{"nodeName":"agent_0","nodeType":"agent"}},"tool_calls":[],"invalid_tool_calls":[],"response_metadata":{},"id":"6772eece-39e7-495c-bd21-9d9e30ea4cfb"}}]}}],"timestamp":1765719687839,"rawEvent":{"nodeType":"agent"}}
+event: STEP_STARTED
+id: 49
+data: {"type":"STEP_STARTED","stepName":"final_response","timestamp":1765719687840}
+event: STEP_FINISHED
+id: 50
+data: {"type":"STEP_FINISHED","stepName":"final_response","timestamp":1765719687843,"rawEvent":{"nodeType":"output"}}
+event: STATE_SNAPSHOT
+id: 51
+data: {"type":"STATE_SNAPSHOT","snapshot":[[],{"final_response":{"variables":{"flow":{},"system":{"userQuery":"{{nodeOutput.interface.inputs.userQuery}}"},"nodes":{"start":{"marker":"START","interface":{"inputs":{"message":"hello"}},"timestamp":"2025-12-14T13:41:26.253Z","nodeId":"start","nodeType":"start","name":"start","type":"start"},"agent_0":{"text":"Hello again! ð How can I assist you with Python today? If you have any questions or need help with anything related to Python programming, feel free to ask!","toolCalls":[],"nodeType":"agent","nodeId":"agent_0","handoffActive":false,"name":"agent_0","type":"agent"},"final_response":{"name":"Final Response","type":"output"}}},"status":"completed","messages":[]}}],"timestamp":1765719687843,"rawEvent":{"nodeType":"output"}}
+event: RUN_FINISHED
+id: 52
+data: {"type":"RUN_FINISHED","threadId":"test-session","runId":"run_1765719686248_p2s9vckd7","result":{"output":null},"timestamp":1765719687845,"outcome":"success"}

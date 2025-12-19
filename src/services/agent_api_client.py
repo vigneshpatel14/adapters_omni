@@ -1,6 +1,6 @@
 """
 Agent API Client
-Handles interaction with the Automagik Agents API.
+Handles interaction with the Automagik Agents API and direct Leo integration.
 """
 
 import logging
@@ -10,6 +10,9 @@ from typing import Dict, Any, Optional, List, Union
 
 import requests
 from requests.exceptions import RequestException, Timeout
+
+from src.config import config
+from src.services.leo_agent_client import LeoAgentClient
 
 
 # Configure logging
@@ -37,6 +40,9 @@ class AgentApiClient:
         """
         # Store config for later access to instance properties
         self.instance_config = config_override
+        
+        # Leo client (initialized only if needed)
+        self._leo_client = None
 
         if config_override:
             # Use per-instance configuration
@@ -44,7 +50,13 @@ class AgentApiClient:
             self.api_key = config_override.agent_api_key
             self.default_agent_name = config_override.default_agent
             self.timeout = config_override.agent_timeout
-            logger.info(f"Agent API client initialized for instance '{config_override.name}' with URL: {self.api_url}")
+            
+            # Check if this is a direct Leo integration
+            if self._is_leo_api_url(self.api_url):
+                logger.info(f"Detected Leo API endpoint for instance '{config_override.name}' - using direct integration")
+                self._initialize_leo_client()
+            else:
+                logger.info(f"Agent API client initialized for instance '{config_override.name}' with URL: {self.api_url}")
         else:
             # Use default values for backward compatibility
             # Default to local Hive API
@@ -60,6 +72,30 @@ class AgentApiClient:
 
         # Flag for health check
         self.is_healthy = False
+    
+    def _is_leo_api_url(self, url: str) -> bool:
+        """Check if URL is a Leo API endpoint."""
+        return "api-leodev.gep.com" in url or "leo-portal-agentic-runtime" in url
+    
+    def _initialize_leo_client(self):
+        """Initialize Leo client with configuration."""
+        try:
+            if not config.leo_agent.is_configured:
+                logger.warning("Leo credentials not configured in environment variables")
+                return
+            
+            self._leo_client = LeoAgentClient(
+                api_base_url=config.leo_agent.api_base_url,
+                workflow_id=config.leo_agent.workflow_id,
+                bearer_token=config.leo_agent.bearer_token,
+                subscription_key=config.leo_agent.subscription_key,
+                bpc=config.leo_agent.bpc,
+                environment=config.leo_agent.environment,
+                version=config.leo_agent.version
+            )
+            logger.info("Leo client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Leo client: {e}", exc_info=True)
 
     def _make_headers(self) -> Dict[str, str]:
         """Make headers for API requests."""
@@ -240,6 +276,29 @@ class AgentApiClient:
         logger.debug(f"Request payload summary: {json.dumps(payload_summary)}")
 
         try:
+            # Check if this is a Leo direct integration
+            if self._leo_client:
+                logger.info("Using direct Leo API integration")
+                try:
+                    response_text = self._leo_client.call_agent(
+                        message=message_content,
+                        session_id=actual_session_id,
+                        user_id=effective_user_id,
+                        context=context
+                    )
+                    
+                    # Return in standard format
+                    return {
+                        "text": response_text,
+                        "message": response_text,
+                        "session_id": actual_session_id,
+                        "success": True,
+                        "agent_name": "leo"
+                    }
+                except Exception as leo_error:
+                    logger.error(f"Leo API error: {leo_error}", exc_info=True)
+                    raise RuntimeError(f"Leo API call failed: {leo_error}")
+            
             # Send request to the agent API
             logger.info(f"Sending request to agent API with timeout: {self.timeout}s")
             response = requests.post(endpoint, headers=headers, json=payload, timeout=self.timeout)

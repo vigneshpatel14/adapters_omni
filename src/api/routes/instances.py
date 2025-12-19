@@ -73,11 +73,11 @@ class InstanceConfigCreate(BaseModel):
     auto_qr: Optional[bool] = Field(True, description="Auto-generate QR code (WhatsApp)")
     integration: Optional[str] = Field("WHATSAPP-BAILEYS", description="WhatsApp integration type")
 
-    # Common agent configuration
-    agent_api_url: str
-    agent_api_key: str
-    default_agent: Optional[str] = None
-    agent_timeout: int = 60
+    # Common agent configuration (optional for built-in agents like Leo)
+    agent_api_url: Optional[str] = None
+    agent_api_key: Optional[str] = None
+    default_agent: Optional[str] = "leo"  # Default to built-in Leo
+    agent_timeout: int = 120  # Increased for streaming agents
     is_default: bool = False
 
     # Automagik instance identification (for UI display)

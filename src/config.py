@@ -146,6 +146,43 @@ class CorsConfig(BaseModel):
     allow_headers: list[str] = Field(default_factory=lambda: os.getenv("AUTOMAGIK_OMNI_CORS_HEADERS", "*").split(","))
 
 
+class LeoAgentConfig(BaseModel):
+    """Leo Agent configuration for direct API integration."""
+
+    api_base_url: str = Field(
+        default_factory=lambda: os.getenv(
+            "LEO_API_BASE_URL",
+            "https://api-leodev.gep.com/leo-portal-agentic-runtime-node-api/v1"
+        )
+    )
+    workflow_id: str = Field(
+        default_factory=lambda: os.getenv(
+            "LEO_WORKFLOW_ID",
+            "e9f65742-8f61-4a7f-b0d2-71b77c5391e7"
+        )
+    )
+    bearer_token: str = Field(default_factory=lambda: os.getenv("LEO_BEARER_TOKEN", ""))
+    subscription_key: str = Field(
+        default_factory=lambda: os.getenv(
+            "LEO_SUBSCRIPTION_KEY",
+            "018ca54b6f5743bfa732ad309adf9e8f"
+        )
+    )
+    bpc: str = Field(default_factory=lambda: os.getenv("LEO_BPC", "20210511"))
+    environment: str = Field(default_factory=lambda: os.getenv("LEO_ENVIRONMENT", "DEV"))
+    version: str = Field(
+        default_factory=lambda: os.getenv(
+            "LEO_VERSION",
+            "74d530a1-8dc8-443a-977b-1fc34434e806"
+        )
+    )
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Leo agent is properly configured."""
+        return bool(self.bearer_token and self.workflow_id)
+
+
 class Config(BaseModel):
     """Main application configuration."""
 
@@ -156,6 +193,7 @@ class Config(BaseModel):
     tracing: TracingConfig = TracingConfig()
     timezone: TimezoneConfig = TimezoneConfig()
     cors: CorsConfig = CorsConfig()
+    leo_agent: LeoAgentConfig = LeoAgentConfig()
 
     @property
     def is_valid(self) -> bool:

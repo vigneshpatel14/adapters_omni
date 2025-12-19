@@ -28,8 +28,7 @@
 ### Prerequisites
 
 - ✅ Postman installed ([Download here](https://www.postman.com/downloads/))
-- ✅ Echo Agent running on `localhost:8886`
-- ✅ Omni API running on `localhost:8882`
+- ✅ Omni API running on `localhost:8882` (Leo integrated)
 - ✅ PostgreSQL or SQLite database initialized
 
 ### Postman Environment Variables (Optional but Recommended)
@@ -42,10 +41,10 @@
 
 ```
 OMNI_URL       = http://localhost:8882
-AGENT_URL      = http://localhost:8886
 API_KEY        = omni-dev-key-test-2025
 EVOLUTION_URL  = https://evolution-api-production-7611.up.railway.app
-EVOLUTION_KEY  = FA758317-709D-4BB6-BA4F-987B2335036A
+EVOLUTION_KEY  = YOUR_EVOLUTION_API_KEY
+LEO_URL        = https://api-leodev.gep.com/leo-portal-agentic-runtime-node-api/v1
 ```
 
 5. Click "Save"
@@ -57,10 +56,10 @@ EVOLUTION_KEY  = FA758317-709D-4BB6-BA4F-987B2335036A
 
 ---
 
-## Test 1: Echo Agent Health Check
+## Test 1: Omni API Health Check
 
 ### Purpose
-Verify that the Echo Agent is running and responding correctly.
+Verify that Omni is running with Leo integration built-in.
 
 ### Postman Request
 
@@ -68,12 +67,13 @@ Verify that the Echo Agent is running and responding correctly.
 
 **URL:**
 ```
-http://localhost:8886/health
+http://localhost:8882/health
 ```
 
 **Headers:**
 ```
 Content-Type: application/json
+x-api-key: omni-dev-key-test-2025
 ```
 
 **Body:** (None - GET request)
@@ -81,12 +81,12 @@ Content-Type: application/json
 ### Step-by-Step in Postman
 
 1. Click "+" to create new tab
-2. Change method dropdown from `GET` (should already be selected)
-3. Paste URL: `http://localhost:8886/health`
+2. Method: `GET`
+3. Paste URL: `http://localhost:8882/health`
 4. Click "Headers" tab
-5. Add header:
-   - Key: `Content-Type`
-   - Value: `application/json`
+5. Add headers:
+   - Key: `Content-Type` | Value: `application/json`
+   - Key: `x-api-key` | Value: `omni-dev-key-test-2025`
 6. Click "Send"
 
 ### Expected Response
@@ -95,17 +95,17 @@ Content-Type: application/json
 
 ```json
 {
-  "status": "healthy",
-  "service": "echo-agent",
-  "version": "1.0.0"
+  "status": "ok",
+  "service": "automagik-omni",
+  "version": "2.0.0"
 }
 ```
 
 ### What This Tests
 
-✅ Echo Agent is running  
-✅ Network connectivity from your machine to agent  
-✅ Agent can respond to requests  
+✅ Omni API is running  
+✅ Leo credentials loaded from .env  
+✅ API key authentication working  
 
 ---
 
@@ -163,7 +163,7 @@ Content-Type: application/json
 ## Test 3: Create WhatsApp Instance
 
 ### Purpose
-Create a new WhatsApp instance configured to use Echo Agent.
+Create a new WhatsApp instance configured to use Leo Agent (built-in).
 
 ### Postman Request
 
@@ -183,20 +183,25 @@ x-api-key: omni-dev-key-test-2025
 **Body (Raw JSON):**
 ```json
 {
-  "name": "whatsapp-bot",
+  "name": "whatsapp-leo-bot",
   "channel_type": "whatsapp",
   "evolution_url": "https://evolution-api-production-7611.up.railway.app",
-  "evolution_key": "FA758317-709D-4BB6-BA4F-987B2335036A",
-  "whatsapp_instance": "whatsapp-bot",
-  "session_id_prefix": "whatsapp-bot-",
+  "evolution_key": "YOUR_EVOLUTION_KEY",
+  "agent_api_url": "https://api-leodev.gep.com/leo-portal-agentic-runtime-node-api/v1/workflow-engine/e9f65742-8f61-4a7f-b0d2-71b77c5391e7/stream",
+  "agent_api_key": "leo_builtin",
+  "default_agent": "leo",
+  "agent_timeout": 120,
   "webhook_base64": true,
-  "agent_api_url": "http://localhost:8886",
-  "agent_api_key": "echo-test-key",
-  "default_agent": "echo",
-  "agent_timeout": 60,
-  "enable_auto_split": true
+  "auto_qr": true
 }
 ```
+
+### About the Configuration
+
+- **agent_api_url**: Leo's streaming endpoint
+- **Omni will auto-detect** the Leo URL (contains "api-leodev.gep.com") and use the built-in `LeoAgentClient`
+- **Leo credentials** are loaded from `.env` file automatically
+- **No separate adapter service needed!**
 
 ### Step-by-Step in Postman
 
@@ -256,8 +261,8 @@ x-api-key: omni-dev-key-test-2025
 | `evolution_key` | Authentication for Evolution API | Your Evolution API key |
 | `agent_api_url` | Where agent is running | `http://localhost:8886` |
 | `agent_api_key` | Authentication for agent | `echo-test-key` |
-| `default_agent` | Which agent to use | `echo` |
-| `agent_timeout` | Timeout in seconds | `60` |
+| `default_agent` | Which agent to use | `leo-adapter` |
+| `agent_timeout` | Timeout in seconds | `120` |
 
 ---
 
@@ -527,10 +532,10 @@ Content-Type: application/json
 
 ```
 1. Postman sends webhook → Omni receives (status 200)
-2. Omni extracts message: "Hello Omni! Can you echo this back?"
+2. Omni extracts message: "What can you do?"
 3. Omni creates trace record
-4. Omni routes to agent: agent_api_url = http://localhost:8886
-5. Agent (Echo) processes and returns: "Echo: Hello Omni! Can you echo this back?"
+4. Omni routes to adapter: agent_api_url = http://localhost:8887
+5. Leo Adapter processes and calls Leo API: Returns Leo's response
 6. Omni would send back to Evolution API (WhatsApp)
 7. Trace marked as "completed"
 ```
@@ -930,8 +935,9 @@ Error: connect ECONNREFUSED 127.0.0.1:8882
 - `agent_response_success: false`
 
 **Solution:**
-- Check agent is running: `python agent-echo.py`
-- Check agent URL in instance config
+- Check adapter is running: `python adapter-leo-agent.py`
+- Check adapter URL in instance config
+- Verify `.env.leo` has valid Leo credentials
 - Try accessing `http://localhost:8886/health` directly
 - Check agent logs for errors
 
