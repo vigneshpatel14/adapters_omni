@@ -750,38 +750,49 @@ class DiscordBotManager:
             except Exception as e:
                 logger.error(f"Failed to initialise Discord identity resolution session: {e}", exc_info=True)
 
-            # Route message to MessageRouter (synchronous call from async context)
-            # Since we're in an async context and route_message is sync, use executor
+            # For Discord, use streaming response if agent config is available
             import asyncio
             from functools import partial
 
             try:
                 loop = asyncio.get_event_loop()
-                # Use partial to ensure correct parameter mapping
-                route_func = partial(
-                    self.message_router.route_message,
-                    message_text=content,  # CRITICAL: message_text comes first in the signature
-                    user_id=resolved_user_id,  # If resolved, prefer stable local user_id
-                    user=None if resolved_user_id else user_dict,  # Fallback to user dict if not resolved
-                    session_name=session_name,
-                    message_type="text",
-                    whatsapp_raw_payload=None,  # Discord doesn't use WhatsApp payload
-                    session_origin="discord",
-                    agent_config=agent_config,  # Pass agent configuration
-                    media_contents=None,  # TODO: Handle Discord attachments if needed
-                    trace_context=None,
-                )
-                agent_response = await loop.run_in_executor(None, route_func)
-
-                # Send response back to Discord if we got one
-                if agent_response:
-                    # Use unified response extraction
-                    response_text = extract_response_text(agent_response)
-                    await message.channel.send(response_text)
-                else:
-                    await message.channel.send(
-                        "I'm sorry, I couldn't process your message right now. Please try again later."
+                
+                # Check if we have agent config with streaming support
+                if agent_config and agent_config.get("api_url"):
+                    # Use streaming response directly without calling route_message first
+                    await self._stream_agent_response(
+                        message=message,
+                        agent_config=agent_config,
+                        message_text=content,
+                        session_name=session_name,
+                        user_id=resolved_user_id or f"{message.author.id}@discord.user",
+                        user=None if resolved_user_id else user_dict,
                     )
+                else:
+                    # Fallback: route through message router for non-streaming
+                    route_func = partial(
+                        self.message_router.route_message,
+                        message_text=content,  # CRITICAL: message_text comes first in the signature
+                        user_id=resolved_user_id,  # If resolved, prefer stable local user_id
+                        user=None if resolved_user_id else user_dict,  # Fallback to user dict if not resolved
+                        session_name=session_name,
+                        message_type="text",
+                        whatsapp_raw_payload=None,  # Discord doesn't use WhatsApp payload
+                        session_origin="discord",
+                        agent_config=agent_config,  # Pass agent configuration
+                        media_contents=None,  # TODO: Handle Discord attachments if needed
+                        trace_context=None,
+                    )
+                    agent_response = await loop.run_in_executor(None, route_func)
+
+                    # Send response back to Discord
+                    if agent_response:
+                        response_text = extract_response_text(agent_response)
+                        await message.channel.send(response_text)
+                    else:
+                        await message.channel.send(
+                            "I'm sorry, I couldn't process your message right now. Please try again later."
+                        )
 
             except TypeError as te:
                 # Fallback for older versions of MessageRouter without some parameters
@@ -800,7 +811,6 @@ class DiscordBotManager:
                 agent_response = await loop.run_in_executor(None, route_func_fallback)
 
                 if agent_response:
-                    # Use unified response extraction
                     response_text = extract_response_text(agent_response)
                     await message.channel.send(response_text)
                 else:
@@ -825,6 +835,112 @@ class DiscordBotManager:
         # Notify message router if method exists
         if hasattr(self.message_router, "handle_bot_disconnected"):
             await self.message_router.handle_bot_disconnected(instance_name, "discord")
+
+    async def _stream_agent_response(
+        self,
+        message: discord.Message,
+        agent_config: Dict[str, Any],
+        message_text: str,
+        session_name: str,
+        user_id: str,
+        user: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Stream agent response to Discord, updating message as chunks arrive.
+        
+        Args:
+            message: Discord message object to respond to
+            agent_config: Agent configuration with API details
+            message_text: User's message text
+            session_name: Session identifier
+            user_id: User ID
+            user: Optional user dictionary
+        """
+        try:
+            from src.services.agent_api_client import AgentApiClient
+            
+            # Create agent API client with instance config for proper Leo initialization
+            # Use the instance_config from agent_config if available
+            instance_config = agent_config.get("instance_config") if agent_config else None
+            
+            if instance_config:
+                client = AgentApiClient(config_override=instance_config)
+            else:
+                # Fallback to creating without config
+                client = AgentApiClient()
+            
+            # Send initial "Processing..." message
+            response_msg = await message.channel.send("⏳ Processing your request...")
+            
+            # Stream response chunks
+            full_response = ""
+            last_update_time = datetime.now(timezone.utc)
+            update_threshold = timedelta(milliseconds=500)  # Update every 500ms max
+            chunk_count = 0
+            
+            try:
+                # Stream from agent
+                for chunk in client.stream_agent(
+                    message=message_text,
+                    session_name=session_name,
+                    user_id=user_id,
+                    user=user,
+                    session_origin="discord",
+                    message_type="text",
+                ):
+                    if chunk:
+                        full_response += chunk
+                        chunk_count += 1
+                        
+                        # Update message periodically to show streaming progress
+                        current_time = datetime.now(timezone.utc)
+                        if current_time - last_update_time >= update_threshold:
+                            try:
+                                # Limit to Discord's 2000 char limit
+                                display_text = full_response[:2000]
+                                if len(full_response) > 2000:
+                                    display_text += f"\n\n... (response too long, showing 2000 of {len(full_response)} chars)"
+                                
+                                await response_msg.edit(content=display_text)
+                                last_update_time = current_time
+                                logger.debug(f"Updated Discord message with {len(full_response)} chars ({chunk_count} chunks)")
+                            except discord.errors.NotFound:
+                                logger.warning("Discord message was deleted during streaming")
+                                break
+                            except discord.errors.HTTPException as e:
+                                logger.warning(f"Discord error updating message: {e}")
+                                # Continue accumulating even if edit fails
+                
+                # Final update with complete response
+                if full_response:
+                    try:
+                        display_text = full_response[:2000]
+                        if len(full_response) > 2000:
+                            display_text += f"\n\n... (response too long, showing 2000 of {len(full_response)} chars)"
+                        
+                        await response_msg.edit(content=display_text)
+                        logger.info(f"Streaming completed: {full_response[:100]}... ({chunk_count} chunks, {len(full_response)} chars total)")
+                    except discord.errors.NotFound:
+                        logger.warning("Discord message was deleted before final update")
+                    except discord.errors.HTTPException as e:
+                        logger.warning(f"Discord error on final update: {e}")
+                else:
+                    # No content received
+                    await response_msg.edit(content="I couldn't generate a response. Please try again.")
+                    
+            except Exception as stream_error:
+                logger.error(f"Error during streaming: {stream_error}", exc_info=True)
+                try:
+                    await response_msg.edit(content=f"❌ Error: {str(stream_error)[:100]}")
+                except:
+                    pass
+                    
+        except Exception as e:
+            logger.error(f"Error setting up streaming response: {e}", exc_info=True)
+            try:
+                await message.channel.send(f"I encountered an error while processing your request: {str(e)[:100]}")
+            except:
+                pass
 
     async def _handle_guild_join(self, instance_name: str, guild: discord.Guild):
         """Handle bot joining a guild."""

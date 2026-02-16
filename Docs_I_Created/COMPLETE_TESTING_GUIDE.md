@@ -83,18 +83,10 @@ This guide provides comprehensive testing procedures for the Automagic Omni ↔ 
 ### Services Required (All Running)
 
 ```
-Terminal 1: Leo Adapter
-$ python adapter-leo-agent.py
-✅ Running on http://0.0.0.0:8887
-
 Terminal 2: Omni API
 $ python -m src
 ✅ Running on http://0.0.0.0:8882
 
-Terminal 3 (Optional): Echo Agent (for comparison)
-$ python agent-echo.py
-✅ Running on http://0.0.0.0:8886
-```
 
 ### Configuration Files Required
 

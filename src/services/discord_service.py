@@ -96,7 +96,8 @@ class DiscordService:
         logger.info(f"Starting Discord bot for instance: {instance_name}")
 
         # Wait for API to be healthy before proceeding
-        api_host = os.getenv("AUTOMAGIK_OMNI_API_HOST", "localhost")
+        # Use localhost for Discord service connections (Discord service is always local to API)
+        api_host = "localhost"
         api_port = int(os.getenv("AUTOMAGIK_OMNI_API_PORT", "8882"))
         health_timeout = int(os.getenv("DISCORD_HEALTH_CHECK_TIMEOUT", "60"))
 

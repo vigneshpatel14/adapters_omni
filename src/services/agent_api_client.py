@@ -80,20 +80,39 @@ class AgentApiClient:
     def _initialize_leo_client(self):
         """Initialize Leo client with configuration."""
         try:
-            if not config.leo_agent.is_configured:
-                logger.warning("Leo credentials not configured in environment variables")
-                return
-            
-            self._leo_client = LeoAgentClient(
-                api_base_url=config.leo_agent.api_base_url,
-                workflow_id=config.leo_agent.workflow_id,
-                bearer_token=config.leo_agent.bearer_token,
-                subscription_key=config.leo_agent.subscription_key,
-                bpc=config.leo_agent.bpc,
-                environment=config.leo_agent.environment,
-                version=config.leo_agent.version
-            )
-            logger.info("Leo client initialized successfully")
+            # If we have instance config, use it; otherwise use environment config
+            if self.instance_config:
+                # Use instance-specific configuration
+                # For instance config, we have the full agent_api_url but need to extract components
+                # The api_url is the base, and we use the configured values
+                leo_config = config.leo_agent  # Still need some defaults from env
+                
+                self._leo_client = LeoAgentClient(
+                    api_base_url=self.instance_config.agent_api_url or leo_config.api_base_url,
+                    workflow_id=leo_config.workflow_id,  # Still use env workflow_id for instance
+                    bearer_token=self.instance_config.agent_api_key or leo_config.bearer_token,  # Use instance key if provided
+                    subscription_key=leo_config.subscription_key,
+                    bpc=leo_config.bpc,
+                    environment=leo_config.environment,
+                    version=leo_config.version
+                )
+                logger.info(f"Leo client initialized for instance '{self.instance_config.name}' with URL: {self.instance_config.agent_api_url}")
+            else:
+                # Use environment configuration
+                if not config.leo_agent.is_configured:
+                    logger.warning("Leo credentials not configured in environment variables")
+                    return
+                
+                self._leo_client = LeoAgentClient(
+                    api_base_url=config.leo_agent.api_base_url,
+                    workflow_id=config.leo_agent.workflow_id,
+                    bearer_token=config.leo_agent.bearer_token,
+                    subscription_key=config.leo_agent.subscription_key,
+                    bpc=config.leo_agent.bpc,
+                    environment=config.leo_agent.environment,
+                    version=config.leo_agent.version
+                )
+                logger.info("Leo client initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Leo client: {e}", exc_info=True)
 
@@ -183,13 +202,16 @@ class AgentApiClient:
         # First, determine the user_id - this is REQUIRED by the agent API
         effective_user_id = user_id  # Default to passed user_id
         
-        if user and isinstance(user, dict) and "phone_number" in user:
+        # Safe check: ensure user is dict and has phone_number before trying to access it
+        if user is not None and isinstance(user, dict) and "phone_number" in user:
             # If user dict has phone_number, try to use it as deterministic user_id
             if not effective_user_id:
-                phone_num = user.get("phone_number", "").replace("+", "").replace(" ", "")
-                if phone_num:
-                    effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, phone_num))
-                    logger.info(f"Generated UUID from phone_number: {effective_user_id}")
+                phone_number = user.get("phone_number")
+                if phone_number is not None:
+                    phone_num = str(phone_number).replace("+", "").replace(" ", "")
+                    if phone_num:
+                        effective_user_id = str(uuid_module.uuid5(uuid_module.NAMESPACE_OID, phone_num))
+                        logger.info(f"Generated UUID from phone_number: {effective_user_id}")
         
         # Handle user_id validation and generation
         if effective_user_id is not None:
@@ -232,10 +254,11 @@ class AgentApiClient:
         logger.debug(f"Payload user_id set to: {effective_user_id}")
         
         # Also include user dict if provided for automatic user creation
-        if user:
+        if user is not None and isinstance(user, dict):
             # Use the user dict for automatic user creation
             payload["user"] = user
-            logger.info(f"Using user dict for automatic user creation: {user.get('phone_number', 'N/A')}")
+            phone_info = user.get('phone_number', 'N/A') if isinstance(user.get('phone_number'), str) else 'N/A'
+            logger.info(f"Using user dict for automatic user creation: {phone_info}")
 
         # Add optional parameters if provided
         if message_type:
@@ -297,6 +320,10 @@ class AgentApiClient:
                     }
                 except Exception as leo_error:
                     logger.error(f"Leo API error: {leo_error}", exc_info=True)
+                    # Provide better error message for 401 auth errors
+                    if "401" in str(leo_error) or "Session has expired" in str(leo_error):
+                        logger.error("Leo API session expired - the workflow endpoint credentials need to be refreshed")
+                        raise RuntimeError("Agent API authentication failed. Your Leo API session has expired. Please update your agent configuration with fresh credentials.")
                     raise RuntimeError(f"Leo API call failed: {leo_error}")
             
             # Send request to the agent API
@@ -409,6 +436,101 @@ class AgentApiClient:
                 "tool_outputs": [],
                 "usage": {},
             }
+
+    def stream_agent(
+        self,
+        message: str,
+        session_name: str,
+        user_id: Optional[str] = None,
+        user: Optional[Dict[str, Any]] = None,
+        session_origin: Optional[str] = None,
+        message_type: str = "text",
+        context: Optional[Dict[str, Any]] = None,
+        media_contents: Optional[List[Dict[str, Any]]] = None,
+        preserve_system_prompt: bool = False,
+    ):
+        """
+        Stream agent response as chunks (for Discord streaming messages).
+        
+        This method streams text chunks from the agent API as they arrive.
+        For Leo API, it yields chunks from the streaming response.
+        
+        Args:
+            message: User's message
+            session_name: Session identifier
+            user_id: User ID (optional)
+            user: User dictionary for auto-creation (optional)
+            session_origin: Origin of the session (e.g., 'discord')
+            message_type: Type of message (default: 'text')
+            context: Additional context (optional)
+            media_contents: Media attachments (optional)
+            preserve_system_prompt: Whether to preserve system prompt
+            
+        Yields:
+            Text chunks as they arrive
+            
+        Raises:
+            RuntimeError: If API call fails
+        """
+        # For Leo API, use the stream_agent method
+        if self._leo_client:
+            logger.info("Using direct Leo API streaming")
+            try:
+                # Effective user_id: use provided user_id, or use email/phone from user dict, or generate
+                effective_user_id = user_id
+                if not effective_user_id and user:
+                    if isinstance(user, dict):
+                        effective_user_id = user.get("email") or user.get("phone_number")
+                
+                # If still no user_id, generate one
+                if not effective_user_id:
+                    import uuid
+                    effective_user_id = str(uuid.uuid4())
+                
+                # Stream from Leo API
+                for chunk in self._leo_client.stream_agent(
+                    message=message,
+                    session_id=session_name,
+                    user_id=effective_user_id,
+                    context=context
+                ):
+                    yield chunk
+                    
+            except Exception as e:
+                logger.error(f"Leo API streaming error: {e}", exc_info=True)
+                raise RuntimeError(f"Leo API streaming failed: {e}")
+        else:
+            # Fallback: call run_agent and yield the full response
+            # (non-streaming agents will return complete response at once)
+            logger.info("Streaming not supported for this agent type, using non-streaming mode")
+            try:
+                response = self.run_agent(
+                    agent_name="leo",
+                    message_content=message,
+                    session_name=session_name,
+                    session_id=session_name,
+                    user_id=user_id,
+                    user=user,
+                    session_origin=session_origin,
+                    message_type=message_type,
+                    media_contents=media_contents,
+                    context=context,
+                    preserve_system_prompt=preserve_system_prompt,
+                )
+                
+                # Yield the complete message as a single chunk
+                if response.get("success"):
+                    message_text = response.get("message") or response.get("text") or ""
+                    if message_text:
+                        yield message_text
+                else:
+                    # Yield error message
+                    error_msg = response.get("error", "An error occurred")
+                    yield error_msg
+                    
+            except Exception as e:
+                logger.error(f"Error in fallback streaming: {e}", exc_info=True)
+                raise RuntimeError(f"Agent streaming failed: {e}")
 
     def get_session_info(self, session_name: str) -> Optional[Dict[str, Any]]:
         """

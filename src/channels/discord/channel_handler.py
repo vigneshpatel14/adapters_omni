@@ -659,35 +659,48 @@ class DiscordChannelHandler(ChannelHandler):
     async def get_status(self, instance: InstanceConfig) -> ConnectionStatus:
         """Get Discord bot connection status."""
         try:
-            if instance.name not in self._bot_instances:
+            # First check if bot is in local instances (API-managed)
+            if instance.name in self._bot_instances:
+                bot_instance = self._bot_instances[instance.name]
+
+                # Get additional connection info
+                channel_data = {
+                    "invite_url": bot_instance.invite_url,
+                    "error_message": bot_instance.error_message,
+                }
+
+                # Add bot-specific data if connected
+                if bot_instance.status == "connected" and bot_instance.client.user:
+                    channel_data.update(
+                        {
+                            "bot_username": str(bot_instance.client.user),
+                            "bot_id": bot_instance.client.user.id,
+                            "guild_count": len(bot_instance.client.guilds),
+                            "guilds": [{"id": guild.id, "name": guild.name} for guild in bot_instance.client.guilds],
+                        }
+                    )
                 return ConnectionStatus(
                     instance_name=instance.name,
                     channel_type="discord",
-                    status="not_found",
+                    status=bot_instance.status,
+                    channel_data=channel_data,
                 )
-            bot_instance = self._bot_instances[instance.name]
-
-            # Get additional connection info
-            channel_data = {
-                "invite_url": bot_instance.invite_url,
-                "error_message": bot_instance.error_message,
-            }
-
-            # Add bot-specific data if connected
-            if bot_instance.status == "connected" and bot_instance.client.user:
-                channel_data.update(
-                    {
-                        "bot_username": str(bot_instance.client.user),
-                        "bot_id": bot_instance.client.user.id,
-                        "guild_count": len(bot_instance.client.guilds),
-                        "guilds": [{"id": guild.id, "name": guild.name} for guild in bot_instance.client.guilds],
-                    }
+            
+            # If not in local instances, check if it's active in database (managed by Discord PM2 service)
+            if instance.is_active and instance.discord_bot_token:
+                # Bot is registered and active - likely managed by Discord PM2 service
+                return ConnectionStatus(
+                    instance_name=instance.name,
+                    channel_type="discord",
+                    status="connected",
+                    channel_data={"managed_by": "discord_service"},
                 )
+            
+            # Bot not found locally and not active
             return ConnectionStatus(
                 instance_name=instance.name,
                 channel_type="discord",
-                status=bot_instance.status,
-                channel_data=channel_data,
+                status="not_found",
             )
         except Exception as e:
             logger.error(f"Failed to get Discord bot status: {e}")

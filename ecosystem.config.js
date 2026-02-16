@@ -77,7 +77,7 @@ module.exports = {
     {
       name: 'automagik-omni-api',
       cwd: PROJECT_ROOT,
-      script: '.venv/bin/uvicorn',
+      script: process.platform === 'win32' ? '.venv\\Scripts\\uvicorn.exe' : '.venv/bin/uvicorn',
       args: 'src.api.app:app --host 0.0.0.0 --port ' + (envVars.AUTOMAGIK_OMNI_API_PORT || '8882'),
       interpreter: 'none',
       version: version,
@@ -112,14 +112,14 @@ module.exports = {
     {
       name: 'automagik-omni-wait',
       cwd: PROJECT_ROOT,
-      script: '.venv/bin/python',
+      script: process.platform === 'win32' ? '.venv\\Scripts\\python.exe' : '.venv/bin/python',
       args: 'scripts/wait_for_api.py',
       interpreter: 'none',
       version: version,
       env: {
         ...envVars,
         PYTHONPATH: PROJECT_ROOT,
-        AUTOMAGIK_OMNI_API_HOST: envVars.AUTOMAGIK_OMNI_API_HOST || 'localhost',
+        AUTOMAGIK_OMNI_API_HOST: 'localhost',
         AUTOMAGIK_OMNI_API_PORT: envVars.AUTOMAGIK_OMNI_API_PORT || '8882',
         DISCORD_HEALTH_CHECK_TIMEOUT: '120',
         NODE_ENV: 'production'
@@ -144,14 +144,14 @@ module.exports = {
     {
       name: 'automagik-omni-discord',
       cwd: PROJECT_ROOT,
-      script: '.venv/bin/python',
+      script: process.platform === 'win32' ? '.venv\\Scripts\\python.exe' : '.venv/bin/python',
       args: 'src/commands/discord_service_manager.py',
       interpreter: 'none',
       version: version,
       env: {
         ...envVars,
         PYTHONPATH: PROJECT_ROOT,
-        AUTOMAGIK_OMNI_API_HOST: envVars.AUTOMAGIK_OMNI_API_HOST || 'localhost',
+        AUTOMAGIK_OMNI_API_HOST: 'localhost',
         AUTOMAGIK_OMNI_API_PORT: envVars.AUTOMAGIK_OMNI_API_PORT || '8882',
         DISCORD_HEALTH_CHECK_TIMEOUT: '60',
         NODE_ENV: 'production'

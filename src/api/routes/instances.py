@@ -337,6 +337,14 @@ async def create_instance(
                 logger.info(f"Using existing Evolution instance for '{instance_data.name}'")
             else:
                 logger.info(f"Created new Evolution instance for '{instance_data.name}'")
+        
+        elif instance_data.channel_type == "discord":
+            # For Discord, mark instance as active immediately for bot discovery
+            # Bot token validation happens in the Discord service
+            db_instance.is_active = True
+            db.commit()
+            db.refresh(db_instance)
+            logger.info(f"Created Discord instance '{instance_data.name}' and marked as active for bot discovery")
 
     except ValidationError as e:
         # Rollback database if validation fails

@@ -194,7 +194,14 @@ def setup_logging(
         root_logger.removeHandler(handler)
 
     # Add console handler with the custom formatter
-    console_handler = logging.StreamHandler(sys.stdout)
+    # On Windows, ensure UTF-8 encoding for proper emoji/Unicode support
+    if sys.platform == "win32":
+        import io
+        console_stream = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        console_handler = logging.StreamHandler(console_stream)
+    else:
+        console_handler = logging.StreamHandler(sys.stdout)
+    
     console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
 
